@@ -58,6 +58,9 @@ public class Main {
         int type = scan.nextInt();
         scan.nextLine(); 
 
+        System.out.println("Enter book title: ");
+        String title = scan.nextLine();
+
         BookFactory factory = null;
         if (type == 1) {
             factory = new ComicFactory();
@@ -70,7 +73,7 @@ public class Main {
             return;
         }
 
-        ReadContent newBook = factory.createBook();
+        ReadContent newBook = factory.createBook(title);
         bookList.add(newBook);
         System.out.println("Book successfully created and added to storage!");
     }

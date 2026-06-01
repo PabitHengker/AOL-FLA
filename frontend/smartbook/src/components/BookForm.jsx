@@ -6,6 +6,7 @@ import Section from './Section.jsx'
 
 export default function BookForm({ books, onAdd, onError }) {
   const [selected,  setSelected]  = useState(null)
+  const [title,     setTitle]     = useState('')
   const [errors,    setErrors]    = useState({})
   const [hoverBtn,  setHoverBtn]  = useState(false)
 
@@ -15,7 +16,7 @@ export default function BookForm({ books, onAdd, onError }) {
   }
 
   function handleSubmit() {
-    const result = onAdd(selected)
+    const result = onAdd(selected, title)
 
     if (result?.errors) {
       setErrors(result.errors)
@@ -24,13 +25,14 @@ export default function BookForm({ books, onAdd, onError }) {
 
     // Reset selection on success
     setSelected(null)
+    setTitle('')
     setErrors({})
   }
 
   return (
     <Section title="Tambah buku baru">
       {/* Type selector */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         {BOOK_TYPES.map(type => (
           <TypeCard
             key={type}
@@ -39,6 +41,25 @@ export default function BookForm({ books, onAdd, onError }) {
             onClick={handleSelect}
           />
         ))}
+      </div>
+
+      {/* Title Input */}
+      <div style={{ marginBottom: 8 }}>
+        <input 
+          type="text" 
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Masukkan judul buku..."
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            border: `1px solid ${G[200]}`,
+            borderRadius: 8,
+            fontSize: 14,
+            outline: 'none',
+            boxSizing: 'border-box'
+          }}
+        />
       </div>
 
       {/* Validation error */}

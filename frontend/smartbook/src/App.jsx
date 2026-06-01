@@ -1,8 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { G } from './constants/catalog.js'
-import { createBookViaFactory } from './utils/factory.js'
-import { readViaProxy }         from './utils/proxy.js'
-import { validateCreate, validateRead } from './utils/validation.js'
 import { nowTime } from './utils/time.js'
 
 import StatCard    from './components/StatCard.jsx'
@@ -30,43 +27,81 @@ export default function App() {
     setTimeout(() => setToast(null), 2500)
   }, [])
 
+  const fetchBooks = useCallback(async () => {
+    try {
+      const res = await fetch('http://localhost:8080/api/books')
+      const data = await res.json()
+      setBooks(data)
+    } catch (err) {
+      console.error(err)
+      addLog({ msg: 'Gagal memuat buku dari backend.', type: 'error' })
+    }
+  }, [addLog])
+
+  useEffect(() => {
+    fetchBooks()
+  }, [fetchBooks])
+
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleAdd = useCallback((selectedType) => {
-    const errors = validateCreate(selectedType, books)
-    if (Object.keys(errors).length > 0) {
-      addLog({ msg: `Validasi gagal: ${Object.values(errors).join('; ')}`, type: 'error' })
-      showToast(Object.values(errors)[0], true)
-      return { errors }
-    }
+  const handleAdd = useCallback(async (type, title) => {
+    if (!type) return { errors: { type: 'Pilih jenis buku' } }
+    if (!title || title.trim() === '') return { errors: { global: 'Judul buku tidak boleh kosong' } }
 
-    const book = createBookViaFactory(selectedType)
-    setBooks(prev => [...prev, book])
-    addLog({ msg: `${book.title} berhasil ditambahkan via factory`, type: 'success' })
-    showToast(`"${book.title}" berhasil ditambahkan!`)
-    return { success: true }
+    try {
+      const res = await fetch('http://localhost:8080/api/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, title }),
+      })
+      if (!res.ok) throw new Error('Gagal menambah buku')
+      const book = await res.json()
+      setBooks(prev => [...prev, book])
+      addLog({ msg: `${book.title} berhasil ditambahkan via API`, type: 'success' })
+      showToast(`"${book.title}" berhasil ditambahkan!`)
+      return { success: true }
+    } catch (err) {
+      console.error(err)
+      addLog({ msg: 'Gagal menambah buku.', type: 'error' })
+      showToast('Gagal menambah buku', true)
+      return { errors: { api: 'Gagal menambah buku' } }
+    }
+  }, [addLog, showToast])
+
+  const handleRead = useCallback(async (id) => {
+    const book = books.find(b => b.id === id)
+    try {
+      const res = await fetch(`http://localhost:8080/api/books/${id}/read`, {
+        method: 'POST'
+      })
+      if (!res.ok) throw new Error('Gagal membaca buku')
+      const updatedBook = await res.json()
+      setBooks(prev => prev.map(b => b.id === id ? updatedBook : b))
+      addLog({ msg: `Membaca ${book.title} via Backend Proxy`, type: 'info' })
+      showToast(`Membaca: ${book.title}`)
+    } catch (err) {
+      console.error(err)
+      addLog({ msg: 'Gagal membaca buku.', type: 'error' })
+      showToast('Gagal membaca buku', true)
+    }
   }, [books, addLog, showToast])
 
-  const handleRead = useCallback((id) => {
-    const book   = books.find(b => b.id === id)
-    const errors = validateRead(book)
-    if (Object.keys(errors).length > 0) {
-      showToast(Object.values(errors)[0], true)
-      return
-    }
-
-    const proxyLogs = readViaProxy(book)
-    addLog(proxyLogs)
-    setBooks(prev => prev.map(b => b.id === id ? { ...b, readCount: b.readCount + 1 } : b))
-    showToast(`Membaca: ${book.title}`)
-  }, [books, addLog, showToast])
-
-  const handleDelete = useCallback((id) => {
+  const handleDelete = useCallback(async (id) => {
     const book = books.find(b => b.id === id)
     if (!book) return
 
-    setBooks(prev => prev.filter(b => b.id !== id))
-    addLog({ msg: `"${book.title}" dihapus dari koleksi`, type: 'warn' })
-    showToast(`"${book.title}" dihapus`)
+    try {
+      const res = await fetch(`http://localhost:8080/api/books/${id}`, {
+        method: 'DELETE'
+      })
+      if (!res.ok) throw new Error('Gagal menghapus buku')
+      setBooks(prev => prev.filter(b => b.id !== id))
+      addLog({ msg: `"${book.title}" dihapus dari koleksi`, type: 'warn' })
+      showToast(`"${book.title}" dihapus`)
+    } catch (err) {
+      console.error(err)
+      addLog({ msg: 'Gagal menghapus buku.', type: 'error' })
+      showToast('Gagal menghapus buku', true)
+    }
   }, [books, addLog, showToast])
 
   // ── Derived stats ──────────────────────────────────────────────────────────
@@ -93,9 +128,6 @@ export default function App() {
         <h1 style={{ fontSize: 20, fontWeight: 700, color: G[800], margin: 0 }}>
           🌿 SmartBook System
         </h1>
-        {/* <p style={{ fontSize: 13, color: G[600], marginTop: 4 }}>
-          Implementasi Factory · Proxy · Adapter Pattern — React + Validasi
-        </p> */}
       </div>
 
       {/* Stats */}
